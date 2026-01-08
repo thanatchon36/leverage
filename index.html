@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BTC Leverage Calculator (Dynamic Risk)</title>
+    <title>BTC Leverage Calculator (Safety 2x)</title>
     <!-- Google Font: Sarabun -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
@@ -118,13 +118,13 @@
         .loss { color: #f6465d; }
 
         /* --- Gradient Classes --- */
-        /* ปลอดภัย (Liq ไกลกว่า Target) */
+        /* ปลอดภัย (Liq ไกลกว่า Target 2 เท่า) */
         .bg-safe {
             background: linear-gradient(90deg, rgba(14, 203, 129, 0.25) 0%, rgba(14, 203, 129, 0.05) 100%);
             border-left: 4px solid #0ecb81;
         }
 
-        /* อันตราย (Liq ใกล้กว่า Target) */
+        /* อันตราย */
         .bg-danger {
             background: linear-gradient(90deg, rgba(246, 70, 93, 0.25) 0%, rgba(246, 70, 93, 0.05) 100%);
             border-left: 4px solid #f6465d;
@@ -142,7 +142,7 @@
 <div class="container">
     <div>
         <button class="refresh-btn" onclick="fetchPrice()">↻ อัปเดตราคา</button>
-        <h2>BTC Risk & Reward</h2>
+        <h2>BTC Calc (Safety 2x)</h2>
     </div>
 
     <div class="input-group">
@@ -173,10 +173,10 @@
                 <tr>
                     <td colspan="3" style="color: #666; padding: 20px;">
                         กรอกราคาและกดปุ่มเพื่อคำนวณ<br>
-                        <small>(คำนวณแบบรวม MMR 0.4% เพื่อความแม่นยำ)</small><br>
+                        <small>(MMR 0.4% | Safety Factor: 2x)</small><br>
                         <small style="margin-top:5px; display:block; color: #aaa;">
-                            <span style="color:#0ecb81">● เขียว</span> = ระยะแตกไกลกว่าเป้า (ปลอดภัย)<br>
-                            <span style="color:#f6465d">● แดง</span> = ระยะแตกใกล้กว่าเป้า (เสี่ยงสูง)
+                            <span style="color:#0ecb81">● เขียว</span> = ระยะแตกไกลกว่าเป้า <strong>2 เท่า</strong><br>
+                            <span style="color:#f6465d">● แดง</span> = ระยะแตกใกล้กว่านั้น (เสี่ยง)
                         </small>
                     </td>
                 </tr>
@@ -186,7 +186,6 @@
 </div>
 
 <script>
-    // ฟังก์ชันดึงราคา BTC จาก Binance
     async function fetchPrice() {
         const entryInput = document.getElementById('entryPrice');
         const originalPlaceholder = entryInput.placeholder;
@@ -203,7 +202,6 @@
         }
     }
 
-    // โหลดราคาเมื่อเปิดเว็บ
     window.onload = fetchPrice;
 
     function calculate(side) {
@@ -218,44 +216,32 @@
         const tableBody = document.getElementById('resultTableBody');
         tableBody.innerHTML = ""; 
 
-        // --- คำนวณระยะห่างระหว่าง Entry กับ Target (Risk Threshold) ---
+        // ระยะห่างจาก Entry ไป Target (Reward Distance)
         const targetDiff = Math.abs(entryPrice - targetPrice);
 
-        // --- การตั้งค่า Maintenance Margin Rate (MMR) ---
         const mmr = 0.004; 
 
-        // Loop x1 ถึง x150
         for (let lev = 1; lev <= 150; lev++) {
             let roePercent = 0;
             let liqPrice = 0;
 
-            // --- คำนวณตามประเภท Position ---
             if (side === 'LONG') {
-                // ROE Formula
                 roePercent = ((targetPrice - entryPrice) / entryPrice) * 100 * lev;
-                
-                // Liq Formula (Long): Entry * (1 - (1/Lev) + MMR)
                 liqPrice = entryPrice * (1 - (1/lev) + mmr);
-                
                 if (liqPrice <= 0) liqPrice = 0; 
-
-            } else { // SHORT
-                // ROE Formula
+            } else { 
                 roePercent = ((entryPrice - targetPrice) / entryPrice) * 100 * lev;
-                
-                // Liq Formula (Short): Entry * (1 + (1/Lev) - MMR)
                 liqPrice = entryPrice * (1 + (1/lev) - mmr);
             }
 
-            // คำนวณระยะห่างจุดแตก (Liq Diff)
+            // ระยะห่างจาก Entry ไป Liq (Risk Distance)
             const liqDiff = Math.abs(entryPrice - liqPrice);
 
-            // สร้างแถวตาราง
             const row = document.createElement('tr');
 
-            // --- ตรวจสอบเงื่อนไขสี (Dynamic Risk Calculation) ---
-            // ถ้า ระยะแตก (liqDiff) >= ระยะเป้าหมาย (targetDiff) -> ปลอดภัย
-            if (liqDiff >= targetDiff) {
+            // --- แก้ไขเงื่อนไขตรงนี้ (Risk 2 : Reward 1) ---
+            // ถ้า ระยะแตก (liqDiff) >= 2 เท่าของระยะเป้าหมาย (targetDiff * 2) -> ปลอดภัย
+            if (liqDiff >= (targetDiff * 2)) {
                 row.className = 'bg-safe'; 
             } else {
                 row.className = 'bg-danger'; 
@@ -264,14 +250,13 @@
             const roeClass = roePercent >= 0 ? 'profit' : 'loss';
             const roeSign = roePercent > 0 ? '+' : '';
 
-            // การแสดงผล Liq Price
             let liqDisplay = "";
             let diffDisplay = "";
 
             if (liqPrice <= 0 && side === 'LONG') {
                  liqDisplay = "Safe";
                  diffDisplay = "∞";
-                 row.className = 'bg-safe'; // บังคับเขียวเสมอถ้าไม่แตก
+                 row.className = 'bg-safe';
             } else {
                 liqDisplay = liqPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                 diffDisplay = liqDiff.toLocaleString('en-US', {maximumFractionDigits: 0});
