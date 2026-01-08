@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BTC Leverage Calculator (Safety 2x)</title>
+    <title>BTC Leverage Calculator (Custom Safety)</title>
     <!-- Google Font: Sarabun -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
@@ -118,7 +118,7 @@
         .loss { color: #f6465d; }
 
         /* --- Gradient Classes --- */
-        /* ปลอดภัย (Liq ไกลกว่า Target 2 เท่า) */
+        /* ปลอดภัย */
         .bg-safe {
             background: linear-gradient(90deg, rgba(14, 203, 129, 0.25) 0%, rgba(14, 203, 129, 0.05) 100%);
             border-left: 4px solid #0ecb81;
@@ -142,7 +142,7 @@
 <div class="container">
     <div>
         <button class="refresh-btn" onclick="fetchPrice()">↻ อัปเดตราคา</button>
-        <h2>BTC Calc (Safety 2x)</h2>
+        <h2>BTC Custom Safety</h2>
     </div>
 
     <div class="input-group">
@@ -153,6 +153,12 @@
     <div class="input-group">
         <label>ราคาเป้าหมาย (Target Price)</label>
         <input type="number" id="targetPrice" placeholder="ใส่ราคาปิด Position" step="0.01">
+    </div>
+
+    <!-- เพิ่มช่องกรอก Safety Factor ตรงนี้ -->
+    <div class="input-group">
+        <label>Safety Factor (เท่า) <small style="color:#666;">*default = 3</small></label>
+        <input type="number" id="safetyFactor" value="3" step="0.1" placeholder="3">
     </div>
 
     <div class="btn-group">
@@ -173,9 +179,9 @@
                 <tr>
                     <td colspan="3" style="color: #666; padding: 20px;">
                         กรอกราคาและกดปุ่มเพื่อคำนวณ<br>
-                        <small>(MMR 0.4% | Safety Factor: 2x)</small><br>
+                        <small>(MMR 0.4%)</small><br>
                         <small style="margin-top:5px; display:block; color: #aaa;">
-                            <span style="color:#0ecb81">● เขียว</span> = ระยะแตกไกลกว่าเป้า <strong>2 เท่า</strong><br>
+                            <span style="color:#0ecb81">● เขียว</span> = ระยะแตกไกลกว่าเป้า <strong><span id="sf-display">3</span> เท่า</strong><br>
                             <span style="color:#f6465d">● แดง</span> = ระยะแตกใกล้กว่านั้น (เสี่ยง)
                         </small>
                     </td>
@@ -207,6 +213,12 @@
     function calculate(side) {
         const entryPrice = parseFloat(document.getElementById('entryPrice').value);
         const targetPrice = parseFloat(document.getElementById('targetPrice').value);
+        // ดึงค่า Safety Factor, ถ้าว่างให้ใช้ 3
+        let safetyFactor = parseFloat(document.getElementById('safetyFactor').value);
+        if (isNaN(safetyFactor) || safetyFactor <= 0) safetyFactor = 3;
+
+        // อัปเดตตัวเลขในคำอธิบาย
+        document.getElementById('sf-display').innerText = safetyFactor;
 
         if (!entryPrice || !targetPrice) {
             alert("กรุณากรอก ราคาเข้า และ ราคาเป้าหมาย");
@@ -239,9 +251,8 @@
 
             const row = document.createElement('tr');
 
-            // --- แก้ไขเงื่อนไขตรงนี้ (Risk 2 : Reward 1) ---
-            // ถ้า ระยะแตก (liqDiff) >= 2 เท่าของระยะเป้าหมาย (targetDiff * 2) -> ปลอดภัย
-            if (liqDiff >= (targetDiff * 2)) {
+            // --- แก้ไขเงื่อนไขตรงนี้ ใช้ตัวแปร safetyFactor ---
+            if (liqDiff >= (targetDiff * safetyFactor)) {
                 row.className = 'bg-safe'; 
             } else {
                 row.className = 'bg-danger'; 
